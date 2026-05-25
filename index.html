@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>智能水印消除工具 v2.1</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 2.2rem; margin-bottom: 8px; }
+        .header p { font-size: 1rem; opacity: 0.9; }
+        .main-card {
+            background: white; border-radius: 20px; padding: 35px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .upload-area {
+            border: 3px dashed #ddd; border-radius: 15px; padding: 50px 40px;
+            text-align: center; transition: all 0.3s; cursor: pointer; background: #fafafa;
+        }
+        .upload-area:hover { border-color: #667eea; background: #f0f4ff; }
+        .upload-area.dragover { border-color: #667eea; background: #e8eeff; }
+        .upload-icon { font-size: 3.5rem; margin-bottom: 15px; }
+        .upload-text { font-size: 1.1rem; color: #666; margin-bottom: 10px; }
+        .upload-hint { color: #999; font-size: 0.85rem; }
+        #fileInput { display: none; }
+
+        /* 模式选择 */
+        .mode-tabs {
+            display: flex; gap: 0; margin: 25px 0 20px;
+            border: 2px solid #e0e0e0; border-radius: 10px; overflow: hidden;
+        }
+        .mode-tab {
+            flex: 1; padding: 12px; text-align: center; cursor: pointer;
+            font-weight: 600; font-size: 0.95rem; transition: all 0.3s;
+            background: #f8f9fa; color: #666; border: none;
+        }
+        .mode-tab.active { background: #667eea; color: white; }
+        .mode-tab:hover:not(.active) { background: #e8eeff; }
+
+        /* 模式面板 */
+        .mode-panel { display: none; padding: 20px; background: #f8f9fa; border-radius: 10px; margin-bottom: 20px; }
+        .mode-panel.active { display: block; }
+        .mode-panel h4 { margin-bottom: 12px; color: #333; }
+        .mode-panel p { color: #666; font-size: 0.9rem; margin-bottom: 12px; }
+
+        .btn {
+            padding: 12px 30px; border: none; border-radius: 8px;
+            font-size: 1rem; cursor: pointer; transition: all 0.3s; font-weight: 600;
+        }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: #f0f0f0; color: #666; margin-left: 10px; }
+        .btn-secondary:hover { background: #e0e0e0; }
+        .action-buttons { text-align: center; margin-top: 20px; }
+
+        .alert {
+            padding: 12px 18px; border-radius: 8px; margin: 15px 0;
+            display: none; font-size: 0.95rem;
+        }
+        .alert.show { display: block; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        .loading { display: none; text-align: center; padding: 30px; }
+        .loading.show { display: block; }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea; border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .preview-area { display: none; margin-top: 20px; }
+        .preview-area.show { display: block; }
+        .preview-area h3 { text-align: center; margin-bottom: 15px; color: #333; }
+        .image-box {
+            background: #f8f9fa; border-radius: 10px; padding: 15px;
+            text-align: center; margin-bottom: 15px;
+        }
+        .image-box h4 { margin-bottom: 10px; color: #555; }
+        .image-box img { max-width: 100%; max-height: 450px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .image-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        .canvas-container { position: relative; display: inline-block; }
+        #selectionCanvas { position: absolute; top: 0; left: 0; cursor: crosshair; width: 100%; height: 100%; }
+
+        .manual-hint { color: #856404; font-size: 0.9rem; margin-bottom: 10px; }
+        .region-tag {
+            display: inline-block; background: #667eea; color: white;
+            padding: 4px 10px; border-radius: 15px; margin: 4px; font-size: 0.85rem;
+        }
+        .region-tag button { background: none; border: none; color: white; margin-left: 6px; cursor: pointer; font-weight: bold; }
+
+        .download-area { text-align: center; margin-top: 15px; display: none; }
+
+        @media (max-width: 768px) {
+            .image-comparison { grid-template-columns: 1fr; }
+            .header h1 { font-size: 1.6rem; }
+            .main-card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 智能水印消除工具</h1>
+            <p>手动框选或自动识别水印区域并消除</p>
+        </div>
+
+        <div class="main-card">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">点击或拖拽上传图片</div>
+                <div class="upload-hint">支持 JPG、PNG、BMP、TIFF、WebP 格式，最大 16MB</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+
+            <!-- 模式选择 -->
+            <div class="mode-tabs">
+                <button class="mode-tab active" data-mode="manual">🖱️ 手动框选</button>
+                <button class="mode-tab" data-mode="auto">🔍 自动检测</button>
+            </div>
+
+            <!-- 手动模式 -->
+            <div class="mode-panel active" id="panel-manual">
+                <h4>🖱️ 手动框选水印区域</h4>
+                <p class="manual-hint">💡 在下方图片上拖拽鼠标选择水印区域，可多次选择</p>
+                <div id="selectedRegions"></div>
+            </div>
+
+            <!-- 自动模式 -->
+            <div class="mode-panel" id="panel-auto">
+                <h4>🔍 自动检测</h4>
+                <p>自动检测图片中的文字水印和Logo并消除</p>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="processBtn" disabled>🚀 开始处理</button>
+                <button class="btn btn-secondary" id="resetBtn">重置</button>
+            </div>
+
+            <div class="alert" id="alertBox"></div>
+            <div class="loading" id="loading"><div class="spinner"></div><p>正在处理中...</p></div>
+
+            <!-- 图片预览 -->
+            <div class="preview-area" id="previewArea">
+                <h3>📷 图片预览</h3>
+                <div class="image-box">
+                    <div class="canvas-container" id="canvasContainer">
+                        <img id="originalImage" src="" alt="原图" style="max-width:100%; max-height:450px; display:block;">
+                        <canvas id="selectionCanvas" style="display:none;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 处理结果 -->
+            <div class="preview-area" id="resultArea">
+                <h3>📊 处理结果</h3>
+                <div class="image-comparison">
+                    <div class="image-box">
+                        <h4>检测预览</h4>
+                        <img id="previewImage" src="" alt="检测预览" style="max-width:100%; max-height:450px;">
+                    </div>
+                    <div class="image-box">
+                        <h4>处理后</h4>
+                        <img id="resultImage" src="" alt="处理后" style="max-width:100%; max-height:450px;">
+                    </div>
+                </div>
+                <div class="download-area" id="downloadArea">
+                    <button class="btn btn-primary" onclick="downloadResult()">💾 下载处理后的图片</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFile = null;
+        let currentMode = 'manual';
+        let selectedRegions = [];
+        let isDrawing = false;
+        let startX, startY;
+        let canvas, ctx, originalImageElement;
+        let resultImageData = null;
+        let resultFileName = null;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const alertBox = document.getElementById('alertBox');
+        const loading = document.getElementById('loading');
+        const previewArea = document.getElementById('previewArea');
+        const resultArea = document.getElementById('resultArea');
+        const originalImage = document.getElementById('originalImage');
+        const previewImage = document.getElementById('previewImage');
+        const resultImage = document.getElementById('resultImage');
+
+        // 模式切换
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                currentMode = tab.dataset.mode;
+                document.getElementById('panel-' + currentMode).classList.add('active');
+
+                // 手动模式需要canvas
+                if (currentMode === 'manual' && originalImageElement) {
+                    initCanvas();
+                } else {
+                    if (canvas) canvas.style.display = 'none';
+                }
+            });
+        });
+
+        // 上传
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault(); uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', e => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+
+        function handleFile(file) {
+            const validExtensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'];
+            const fileName = file.name.toLowerCase();
+            const hasValidExt = validExtensions.some(ext => fileName.endsWith(ext));
+            if (!hasValidExt && !file.type.startsWith('image/')) {
+                showAlert('请上传有效的图片文件', 'error'); return;
+            }
+            currentFile = file;
+            processBtn.disabled = false;
+            const reader = new FileReader();
+            reader.onload = e => {
+                originalImage.src = e.target.result;
+                previewArea.classList.add('show');
+                originalImageElement = new Image();
+                originalImageElement.src = e.target.result;
+                originalImageElement.onload = () => { if (currentMode === 'manual') initCanvas(); };
+            };
+            reader.readAsDataURL(file);
+            showAlert('图片已上传，选择模式后点击"开始处理"', 'success');
+        }
+
+        // Canvas（手动模式）
+        function initCanvas() {
+            canvas = document.getElementById('selectionCanvas');
+            canvas.width = originalImageElement.width;
+            canvas.height = originalImageElement.height;
+            ctx = canvas.getContext('2d');
+            canvas.style.display = 'block';
+            canvas.onmousedown = startDraw;
+            canvas.onmousemove = drawing;
+            canvas.onmouseup = stopDraw;
+            canvas.onmouseout = stopDraw;
+        }
+        function startDraw(e) {
+            if (currentMode !== 'manual') return;
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+            startX = (e.clientX - rect.left) * sx;
+            startY = (e.clientY - rect.top) * sy;
+        }
+        function drawing(e) {
+            if (!isDrawing || currentMode !== 'manual') return;
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+            const cx = (e.clientX - rect.left) * sx, cy = (e.clientY - rect.top) * sy;
+            redrawCanvas();
+            ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 3;
+            ctx.strokeRect(startX, startY, cx - startX, cy - startY);
+            ctx.fillStyle = 'rgba(0,255,0,0.15)';
+            ctx.fillRect(startX, startY, cx - startX, cy - startY);
+        }
+        function stopDraw(e) {
+            if (!isDrawing || currentMode !== 'manual') return;
+            isDrawing = false;
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+            const ex = (e.clientX - rect.left) * sx, ey = (e.clientY - rect.top) * sy;
+            const x = Math.min(startX, ex), y = Math.min(startY, ey);
+            const w = Math.abs(ex - startX), h = Math.abs(ey - startY);
+            if (w > 10 && h > 10) {
+                selectedRegions.push({x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h)});
+                updateRegionTags();
+                redrawCanvas();
+            }
+        }
+        function redrawCanvas() {
+            if (!ctx) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            selectedRegions.forEach((r, i) => {
+                ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 3;
+                ctx.strokeRect(r.x, r.y, r.w, r.h);
+                ctx.fillStyle = 'rgba(0,255,0,0.15)';
+                ctx.fillRect(r.x, r.y, r.w, r.h);
+                ctx.fillStyle = '#00ff00'; ctx.font = 'bold 20px Arial';
+                ctx.fillText((i + 1).toString(), r.x + 5, r.y + 25);
+            });
+        }
+        function updateRegionTags() {
+            document.getElementById('selectedRegions').innerHTML = selectedRegions.map((r, i) =>
+                `<span class="region-tag">区域${i+1}: ${r.w}x${r.h} <button onclick="removeRegion(${i})">×</button></span>`
+            ).join('');
+        }
+        function removeRegion(i) { selectedRegions.splice(i, 1); updateRegionTags(); redrawCanvas(); }
+
+        // 处理
+        processBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+            loading.classList.add('show');
+            processBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('image', currentFile);
+            formData.append('mode', currentMode);
+
+            if (currentMode === 'manual') {
+                if (selectedRegions.length === 0) { showAlert('请先在图片上框选水印区域', 'error'); loading.classList.remove('show'); processBtn.disabled = false; return; }
+                formData.append('regions', JSON.stringify(selectedRegions.map(r => [r.x, r.y, r.w, r.h])));
+            }
+
+            try {
+                const resp = await fetch('/api/remove', { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (data.success) {
+                    resultArea.classList.add('show');
+                    if (data.preview) previewImage.src = data.preview;
+                    else previewImage.src = originalImage.src;
+                    if (data.result) {
+                        resultImage.src = data.result;
+                        resultImageData = data.result;
+                        resultFileName = 'removed_' + currentFile.name;
+                        document.getElementById('downloadArea').style.display = 'block';
+                    }
+                    showAlert(data.message || '处理完成', data.watermark_found ? 'success' : 'info');
+                } else {
+                    showAlert(data.error || '处理失败', 'error');
+                }
+            } catch (err) {
+                showAlert('网络错误：' + err.message, 'error');
+            } finally {
+                loading.classList.remove('show');
+                processBtn.disabled = false;
+            }
+        });
+
+        // 重置
+        resetBtn.addEventListener('click', () => {
+            currentFile = null; selectedRegions = [];
+            fileInput.value = ''; processBtn.disabled = true;
+            previewArea.classList.remove('show'); resultArea.classList.remove('show');
+            originalImage.src = ''; previewImage.src = ''; resultImage.src = '';
+            resultImageData = null; resultFileName = null;
+            document.getElementById('downloadArea').style.display = 'none';
+            document.getElementById('selectedRegions').innerHTML = '';
+            if (canvas) { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = 'none'; }
+            hideAlert();
+        });
+
+        function downloadResult() {
+            if (!resultImageData) { showAlert('没有可下载的图片', 'error'); return; }
+            const link = document.createElement('a');
+            link.href = resultImageData; link.download = resultFileName || 'removed.png';
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+        function showAlert(msg, type) {
+            alertBox.textContent = msg;
+            alertBox.className = 'alert alert-' + type + ' show';
+            setTimeout(hideAlert, 5000);
+        }
+        function hideAlert() { alertBox.classList.remove('show'); }
+    </script>
+</body>
+</html>

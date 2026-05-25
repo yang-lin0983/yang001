@@ -1,3 +1,6 @@
-streamlit
-opencv-python
-numpy
+flask>=2.0
+opencv-python-headless>=4.5
+numpy>=1.21
+Pillow>=8.0
+pytesseract>=0.3
+gunicorn>=21.0
