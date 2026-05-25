@@ -3,7 +3,7 @@
 兼容 Windows/Linux 云端部署
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import cv2
 import numpy as np
 import os
@@ -13,7 +13,12 @@ import json
 from PIL import Image
 from watermark_remover import SmartWatermarkRemover
 
-app = Flask(__name__)
+# 兼容两种文件结构：templates/index.html 或根目录 index.html
+template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+if os.path.exists(os.path.join(template_path, 'index.html')):
+    app = Flask(__name__, template_folder='templates')
+else:
+    app = Flask(__name__, template_folder=os.path.dirname(os.path.abspath(__file__)))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 UPLOAD_FOLDER = 'uploads'
